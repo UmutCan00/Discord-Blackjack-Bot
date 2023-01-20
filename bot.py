@@ -29,6 +29,8 @@ dealer = {"name": "Dealer", "hand": [], "score": 0, "active": True}
 def reset():
     global deck
     global player
+    global player1
+    global player2
     global dealer
     global split
     split = False
@@ -139,6 +141,7 @@ def calcDealerScore():
 @client.event
 async def on_ready():
     print(f'We have logged in as {client.user}')
+    await client.change_presence(activity=discord.Game(name="Kızların duygularıyla"))
 
 @client.event
 async def on_message(message):
@@ -146,9 +149,10 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    if message.content.startswith('!help'):
+    if message.content.startswith('help'):
         await message.channel.send('This is a simple blackjack bot. Your aim is to score higher than the dealer and lower than 21. The dealer will draw until their score is at least 17')
         await message.channel.send('!newgame to start the game\n!hit to hit\n!stand to stand\n!split to split your hand in the first round\n!hit1, !hit2 to hit after split\n!stand1, !stand2 to stand after split')
+        await message.channel.send('You can split even if your two cards aren\'t the same value.\nAfter the game finishes you must use !newgame to shuffle the deck and restart\nThe deck of this game has 52 cards.')    
     if message.content.startswith('!newgame'):
         if game_in_progress:
             await message.channel.send("A game is already in progress. Please wait for it to finish or use !finishgame to end it prematurely.")
@@ -180,15 +184,12 @@ async def on_message(message):
         global split
         if not game_in_progress:
             await message.channel.send("No game is in progress. Please start a new game with !newgame")
-            log += "False "+ "\n"
             return
         if message.author.name != player["name"]:
             await message.channel.send("It is not your turn")
-            log += "False "+ "\n"
             return
         if split:
             await message.channel.send("You have already splitted")
-            log += "False "+ "\n"
             return
         player1["name"] = player["name"]
         player1["hand"].append(player["hand"].pop(0))
@@ -222,6 +223,7 @@ async def on_message(message):
         player1["hand"].append(card)
         calcPlayerScore()
         score = player1["score"]
+        await message.channel.send(f'{player1["name"]}, your new hand is {player1["hand"]}, your score is {score}')
         if score == 21:
             await message.channel.send(f'{player1["name"]}, your score is 21. You win.')
             player1["active"] = False
@@ -234,7 +236,7 @@ async def on_message(message):
             player1["score"] = score
             #game_in_progress = False
             return
-        await message.channel.send(f'{player1["name"]}, your new hand is {player1["hand"]}, your score is {score}')
+
         await message.channel.send("Type !hit1 to draw another card or !stand1 to keep your current hand")
 
     if message.content.startswith('!hit2'):
@@ -255,6 +257,7 @@ async def on_message(message):
         player2["hand"].append(card)
         calcPlayerScore()
         score = player2["score"]
+        await message.channel.send(f'{player2["name"]}, your new hand is {player2["hand"]}, your score is {score}')
         if score == 21:
             await message.channel.send(f'{player2["name"]}, your score is 21. You win.')
             player2["active"] = False
@@ -262,12 +265,30 @@ async def on_message(message):
             game_in_progress = False
             return
         if score > 21:
-            await message.channel.send(f'{player2["name"]}, your score is {score}. You lose.')
+            calcDealerScore()
+            if(player1["score"]>21):
+                await message.channel.send(f'{player2["name"]}, your first hand is {player1["hand"]} with a score {player1["score"]}.')
+                await message.channel.send(f'{player2["name"]}, your second hand is {player2["hand"]} with a score {player2["score"]}. You lose.')
+            if(player1["score"]<21):
+                while(dealer["score"] < 17):
+                    card = deck.pop()
+                    dealer["hand"].append(card)
+                    calcDealerScore()
+                    await message.channel.send(f"Dealer's new hand is {dealer['hand']} with a score of {dealer['score']}")
+                await message.channel.send(f"Dealer's final hand is {dealer['hand']} with a score of {dealer['score']}")
+                if(dealer["score"]>21):
+                    await message.channel.send(f"Dealer busts, {player1['name']} wins with the first hand with a score of {player1['score']}!")
+                elif(dealer["score"]==21):
+                    await message.channel.send(f"Dealer wins with a score of {dealer['score']}.\nYour first hand is: {player1['hand']}.\nYour second hand is: {player2['hand']}.")
+                elif(player1["score"]>dealer["score"]):
+                    await message.channel.send(f"{player1['name']} wins with the first hand with a score of {player1['score']}!")
+                else:
+                    await message.channel.send(f"Dealer wins with a score of {dealer['score']}.\nYour first hand is: {player1['hand']}.\nYour second hand is: {player2['hand']}.")
             player2["active"] = False
             player2["score"] = score
             game_in_progress = False
             return
-        await message.channel.send(f'{player2["name"]}, your new hand is {player2["hand"]}, your score is {score}')
+        
         await message.channel.send("Type !hit2 to draw another card or !stand2 to keep your current hand")
         return
 
@@ -286,6 +307,7 @@ async def on_message(message):
         player["hand"].append(card)
         calcPlayerScore()
         score = player["score"]
+        await message.channel.send(f'{player["name"]}, your new hand is {player["hand"]}, your score is {score}')       
         if score == 21:
             await message.channel.send(f'{player["name"]}, your hand is {player["hand"]}, your score is 21. You win.')
             player["active"] = False
@@ -298,7 +320,7 @@ async def on_message(message):
             player["score"] = score
             game_in_progress = False
             return
-        await message.channel.send(f'{player["name"]}, your new hand is {player["hand"]}, your score is {score}')
+
         await message.channel.send("Type !hit to draw another card or !stand to keep your current hand")
 
     if message.content.startswith('!stand1'):
@@ -341,21 +363,32 @@ async def on_message(message):
             dealer_score = dealer["score"]
             await message.channel.send(f"Dealer's new hand is {dealer['hand']} with a score of {dealer_score}")
 
-
         await message.channel.send(f"Dealer's final hand is {dealer['hand']} with a score of {dealer_score}")
         if dealer_score > 21:
-            await message.channel.send(f"Dealer busts, {player2['name']} wins!")
+            await message.channel.send(f"Dealer busts, {player2['name']} wins with the second hand with a score of {player2['score']}!")
             game_in_progress = False
             return
-        if player2["score"] > dealer_score:
+        if player2["score"] == 21:
+            await message.channel.send(f"{player2['name']} wins with the second hand with a score of 21!")
+            game_in_progress = False
+            return
+        if player1["score"] == 21:
+            await message.channel.send(f"{player2['name']} wins with the first hand with a score of 21!")
+            game_in_progress = False
+            return
+        if player2["score"] > dealer_score and player2["score"] < 21:
             await message.channel.send(f"{player2['name']} wins with the second hand with a score of {player2['score']}")
             game_in_progress = False
             return
-        if player1["score"] > dealer_score:
+        if player1["score"] > dealer_score and player1["score"] < 21:
             await message.channel.send(f"{player2['name']} wins with the first hand with a score of {player1['score']}")
             game_in_progress = False
             return
-        if dealer_score == player2["score"] and dealer_score == player1["score"]:
+        if  player2["score"] <= dealer_score and dealer_score == player1["score"]:
+            await message.channel.send("It's a tie!")
+            game_in_progress = False
+            return
+        if player1["score"] <= dealer_score and dealer_score == player2["score"]:
             await message.channel.send("It's a tie!")
             game_in_progress = False
             return
@@ -363,6 +396,10 @@ async def on_message(message):
             await message.channel.send(f"Dealer wins with a score of {dealer_score}.\nYour first hand is: {player1['hand']}.\nYour second hand is: {player2['hand']}.")
             game_in_progress = False
             return
+
+
+
+
 
     if message.content.startswith('!stand'):
         if not game_in_progress:
