@@ -238,6 +238,7 @@ async def on_message(message):
             return
 
         await message.channel.send("Type !hit1 to draw another card or !stand1 to keep your current hand")
+        return
 
     if message.content.startswith('!hit2'):
  
@@ -396,10 +397,6 @@ async def on_message(message):
             await message.channel.send(f"Dealer wins with a score of {dealer_score}.\nYour first hand is: {player1['hand']}.\nYour second hand is: {player2['hand']}.")
             game_in_progress = False
             return
-
-
-
-
 
     if message.content.startswith('!stand'):
         if not game_in_progress:
