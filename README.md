@@ -1,3 +1,3 @@
 # Discord-Blackjack-Bot
-This is a simple blackjack bot using Discord.py 
-<br />Still in development
+This is a simple blackjack bot using Discord.py that runs on a server. 
+<br />Still in development...
